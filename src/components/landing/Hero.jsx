@@ -3,7 +3,10 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "../../shared/AuthContext";
+
 export function Hero() {
+    const { user } = useAuth();
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
@@ -107,7 +110,7 @@ export function Hero() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.7 }}
                 >
-                    <Link to="/signup">
+                    <Link to={user ? (user.role === 'seller' ? '/seller/dashboard' : '/student/dashboard') : "/signup"}>
                         <motion.button
                             whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(79, 70, 229, 0.3)" }}
                             whileTap={{ scale: 0.95 }}

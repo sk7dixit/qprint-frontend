@@ -18,29 +18,23 @@ import logo from "../assets/images/logo.png";
 
 export default function SignUp() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
 
-    // Auto-redirect on success
-    useEffect(() => {
-        if (success && user) {
-            const timer = setTimeout(() => {
-                // Redirection logic will handle where they go (Complete Profile or Dashboard)
-                navigate("/", { replace: true });
-            }, 800);
-            return () => clearTimeout(timer);
-        }
-    }, [success, user, navigate]);
+
 
     const handleGoogleSignUp = async () => {
         setLoading(true);
         setError("");
         try {
             const result = await signInWithPopup(auth, googleProvider);
-            console.log("Signed up user:", result.user);
+            const { getAdditionalUserInfo } = await import("firebase/auth");
+            const details = getAdditionalUserInfo(result);
+
             setSuccess(true);
+            // AuthGuard will handle the redirect based on auth state and profile completion.
         } catch (err) {
             if (err.code === "auth/popup-closed-by-user") {
                 setError("Sign up cancelled. Please try again.");

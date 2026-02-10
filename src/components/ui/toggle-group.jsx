@@ -3,8 +3,8 @@
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 
-import { cn } from "../../lib/utils";
-import { toggleVariants } from "../../components/ui/toggle";
+import { cn } from "@/lib/utils";
+import { toggleVariants } from "@/components/ui/toggle";
 
 const ToggleGroupContext = React.createContext({
     size: "default",
@@ -48,6 +48,7 @@ function ToggleGroupItem({
                     variant: context.variant || variant,
                     size: context.size || size,
                 }),
+                "min-w-0 px-2 shadow-none first:rounded-l-md last:rounded-r-md data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
                 className,
             )}
             {...props}

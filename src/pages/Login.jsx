@@ -20,10 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 
 export default function Login() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+
 
     // State for active tab to control animation
     const [activeTab, setActiveTab] = useState("student");
@@ -32,23 +33,15 @@ export default function Login() {
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
 
-    // Auto-redirect on success
-    useEffect(() => {
-        if (success && user) {
-            const timer = setTimeout(() => {
-                navigate("/", { replace: true });
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [success, user, navigate]);
 
     const handleStudentLogin = async () => {
         setLoading(true);
         setError("");
         try {
             const result = await signInWithPopup(auth, googleProvider);
-            console.log("Logged in user:", result.user);
             setSuccess(true);
+            setSuccess(true);
+            // AuthGuard handles redirection
         } catch (err) {
             if (err.code === "auth/popup-closed-by-user") {
                 setError("Google login cancelled. Please try again.");

@@ -13,15 +13,8 @@ import {
     ChevronDown,
     User
 } from 'lucide-react';
-import { Dashboard } from './components/Dashboard';
-import { Queue } from './components/Queue';
-import { Chat } from './components/Chat';
-import { History } from './components/History';
-import { Payments } from './components/Payments';
-import { Settings } from './components/Settings';
-import { Profile } from './components/Profile';
 import { useAuth } from '../shared/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import logo from '../assets/images/logo.png';
 
 function ProfileMenu() {
@@ -30,7 +23,6 @@ function ProfileMenu() {
     const navigate = useNavigate();
     const menuRef = useRef(null);
 
-    // Close on click outside
     useEffect(() => {
         function handleClickOutside(event) {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -46,7 +38,6 @@ function ProfileMenu() {
     const handleLogout = async () => {
         try {
             await logout();
-            navigate('/login');
         } catch (error) {
             console.error("Failed to logout", error);
         }
@@ -85,63 +76,40 @@ function ProfileMenu() {
     );
 }
 
-export default function SellerDashboard() {
+export default function SellerLayout() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [activeModule, setActiveModule] = useState('dashboard');
+    const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
 
-    // Hard Security Guard: Redirect if password reset is required
     useEffect(() => {
-        const checkSecurityStatus = async () => {
-            if (user) {
-                // Check local user state first
-                if (user.force_password_reset === true) {
-                    navigate("/seller/reset-password", { replace: true });
-                }
-            }
-        };
-        checkSecurityStatus();
+        if (user && user.force_password_reset === true) {
+            navigate("/seller/reset-password", { replace: true });
+        }
     }, [user, navigate]);
 
     const menuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'queue', label: 'Queue', icon: ListOrdered },
-        { id: 'chat', label: 'Messages', icon: MessageSquare },
-        { id: 'history', label: 'History', icon: HistoryIcon },
-        { id: 'payments', label: 'Payments', icon: Wallet },
-        { id: 'profile', label: 'Shop Profile', icon: Store },
-        { id: 'settings', label: 'Settings', icon: SettingsIcon },
+        { id: 'dashboard', path: '/seller/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'queue', path: '/seller/queue', label: 'Queue', icon: ListOrdered },
+        { id: 'chat', path: '/seller/chat', label: 'Messages', icon: MessageSquare },
+        { id: 'history', path: '/seller/history', label: 'History', icon: HistoryIcon },
+        { id: 'payments', path: '/seller/payments', label: 'Payments', icon: Wallet },
+        { id: 'profile', path: '/seller/profile', label: 'Shop Profile', icon: Store },
+        { id: 'settings', path: '/seller/settings', label: 'Settings', icon: SettingsIcon },
     ];
-
-    const renderContent = () => {
-        switch (activeModule) {
-            case 'dashboard': return <Dashboard onNavigate={setActiveModule} />;
-            case 'queue': return <Queue />;
-            case 'chat': return <Chat />;
-            case 'history': return <History />;
-            case 'payments': return <Payments />;
-            case 'profile': return <Profile />;
-            case 'settings': return <Settings isOnline={isOnline} setIsOnline={setIsOnline} />;
-            default: return <Dashboard onNavigate={setActiveModule} />;
-        }
-    };
 
     return (
         <div className="min-h-screen bg-[#F9FAFB]">
-            {/* 2️⃣ HEADER (FINAL) */}
             <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 z-50">
                 <div className="flex items-center">
                     <img src={logo} alt="QPrint Logo" className="h-8 w-auto drop-shadow-sm" />
                 </div>
-
                 <div className="flex items-center">
                     <ProfileMenu />
                 </div>
             </header>
 
-            {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
@@ -149,7 +117,6 @@ export default function SellerDashboard() {
                 />
             )}
 
-            {/* 3️⃣ FLOATING SIDEBAR (ALIGNED) */}
             <aside className={`
                 fixed top-[96px] left-[24px] w-[72px]
                 bg-gradient-to-b from-[#0b0f14] to-[#0f1623]
@@ -163,15 +130,13 @@ export default function SellerDashboard() {
                 <nav className="flex flex-col items-center gap-[14px] w-full">
                     {menuItems.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeModule === item.id;
+                        const isActive = location.pathname === item.path;
 
                         return (
-                            <button
+                            <Link
                                 key={item.id}
-                                onClick={() => {
-                                    setActiveModule(item.id);
-                                    setIsMobileMenuOpen(false);
-                                }}
+                                to={item.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
                                 className={`
                                     relative w-[44px] h-[44px] rounded-[14px]
                                     flex items-center justify-center
@@ -184,22 +149,18 @@ export default function SellerDashboard() {
                                 `}
                                 title={item.label}
                             >
-                                {/* Left Accent Bar for Active State */}
                                 {isActive && (
                                     <div className="absolute -left-[10px] w-[4px] h-[28px] bg-[#22d3ee] rounded-[2px] shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
                                 )}
-
                                 <Icon className="w-[20px] h-[20px]" />
-                            </button>
+                            </Link>
                         );
                     })}
                 </nav>
             </aside>
 
-            {/* 4️⃣ CONTENT AREA (CENTERED) */}
             <main className="mt-[64px] min-h-[calc(100vh-64px)] transition-all duration-300">
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:pl-[120px] py-8">
-                    {/* Mobile Menu Trigger */}
                     <div className="lg:hidden mb-4">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
@@ -209,9 +170,8 @@ export default function SellerDashboard() {
                         </button>
                     </div>
 
-                    {/* Content Area */}
                     <div className="animate-in fade-in duration-500">
-                        {renderContent()}
+                        <Outlet context={{ isOnline, setIsOnline }} />
                     </div>
                 </div>
             </main>

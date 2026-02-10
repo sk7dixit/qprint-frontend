@@ -2,8 +2,10 @@ import { motion } from "motion/react";
 import { ArrowRight, Sparkles, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
+import { useAuth } from "../../shared/AuthContext";
 
 export function CTA() {
+    const { user } = useAuth();
 
     return (
         <section className="py-20 relative overflow-hidden">
@@ -96,7 +98,7 @@ export function CTA() {
                             viewport={{ once: true }}
                             transition={{ delay: 0.3 }}
                         >
-                            <Link to="/signup">
+                            <Link to={user ? (user.role === 'seller' ? '/seller/dashboard' : '/student/dashboard') : "/signup"}>
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}

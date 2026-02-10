@@ -12,7 +12,7 @@ import { db } from '../../shared/firebase';
 import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
 import { useAuth } from '../../shared/AuthContext';
 
-export function Dashboard({ onNavigate }) {
+export default function Dashboard({ onNavigate }) {
     const { user } = useAuth();
     const [stats, setStats] = useState({
         activeQueue: 0,
@@ -28,7 +28,7 @@ export function Dashboard({ onNavigate }) {
         const targetShopId = user?.shopId || user?.shop_id;
 
         if (!targetShopId) {
-            setLoading(false); // Stop spinning if no ID found
+            setLoading(false);
             return;
         }
 
@@ -36,7 +36,6 @@ export function Dashboard({ onNavigate }) {
         const jobsRef = collection(db, 'shops', shopId, 'jobs');
         const paymentsRef = collection(db, 'shops', shopId, 'payments');
 
-        // Listen for all jobs to aggregate stats
         const unsubJobs = onSnapshot(jobsRef, (snapshot) => {
             const today = new Date().toDateString();
             const jobs = snapshot.docs.map(doc => ({ ...doc.data(), createdAt: doc.data().createdAt?.toDate() }));
@@ -46,17 +45,19 @@ export function Dashboard({ onNavigate }) {
 
             setStats(prev => ({ ...prev, activeQueue: active, completedToday: completed }));
 
-            // Recent Activity from Jobs
             const recent = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
                 .slice(0, 4)
-                .map(j => ({
-                    id: j.id,
-                    time: j.createdAt ? formatDistance(j.createdAt.toDate()) : 'Recently',
-                    action: j.status.charAt(0).toUpperCase() + j.status.slice(1),
-                    student: j.studentName || 'Student'
-                }));
+                .map(j => {
+                    const date = j.createdAt?.toDate ? j.createdAt.toDate() : j.createdAt;
+                    return {
+                        id: j.id,
+                        time: date instanceof Date ? formatDistance(date) : 'Recently',
+                        action: j.status.charAt(0).toUpperCase() + j.status.slice(1),
+                        student: j.studentName || 'Student'
+                    };
+                });
             setRecentActivity(recent);
             setLoading(false);
         }, (error) => {
@@ -64,7 +65,6 @@ export function Dashboard({ onNavigate }) {
             setLoading(false);
         });
 
-        // Listen for payments to aggregate financial stats
         const unsubPayments = onSnapshot(paymentsRef, (snapshot) => {
             const today = new Date().toDateString();
             const payments = snapshot.docs.map(doc => ({ ...doc.data(), createdAt: doc.data().createdAt?.toDate() }));
@@ -92,27 +92,28 @@ export function Dashboard({ onNavigate }) {
         return `${Math.floor(diff / 60)}h ago`;
     }
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-                <Loader2 className="size-10 animate-spin mb-4 text-accent-blue" />
-                <p className="text-sm font-medium uppercase tracking-widest animate-pulse">Synchronizing Global Ops...</p>
-            </div>
-        );
-    }
+    // REMOVED: Blocking loading screen
 
     return (
         <div className="size-full">
             {/* 5.1 Page header (compact) */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-semibold text-gray-900 leading-tight tracking-tight">Dashboard</h1>
-                <p className="text-gray-500 mt-1.5 text-base font-medium">Quick operational overview</p>
-                {(!user?.shopId && !user?.shop_id) && (
-                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-sm animate-pulse">
-                        <Circle className="size-3 fill-red-600 animate-ping" /> Security Alert: Shop Identity Payload Corrupted or Missing from JWT
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-semibold text-gray-900 leading-tight tracking-tight">Dashboard</h1>
+                    <p className="text-gray-500 mt-1.5 text-base font-medium">Quick operational overview</p>
+                </div>
+                {loading && (
+                    <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-xl animate-in fade-in">
+                        <Loader2 className="size-4 animate-spin" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Syncing</span>
                     </div>
                 )}
             </div>
+            {(!user?.shopId && !user?.shop_id) && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-sm animate-pulse">
+                    <Circle className="size-3 fill-red-600 animate-ping" /> Security Alert: Shop Identity Payload Corrupted or Missing from JWT
+                </div>
+            )}
 
             {/* 5.2 System Status Banner (Expanded) */}
             <div className="bg-gradient-to-r from-[#10b981] to-[#059669] rounded-[20px] px-8 py-6 mb-8 text-white shadow-[0_12px_40px_rgba(16,185,129,0.2)] min-h-[100px] flex items-center justify-between border border-white/10">
@@ -238,6 +239,6 @@ export function Dashboard({ onNavigate }) {
                     ))}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

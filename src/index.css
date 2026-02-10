@@ -1,3 +1,10 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Global Root Reset */
+#root {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}

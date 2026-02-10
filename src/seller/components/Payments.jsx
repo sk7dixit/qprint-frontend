@@ -4,7 +4,7 @@ import { db } from '../../shared/firebase';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { useAuth } from '../../shared/AuthContext';
 
-export function Payments() {
+export default function Payments() {
     const { user } = useAuth();
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -63,14 +63,7 @@ export function Payments() {
         return `${Math.floor(diff / 60)}h ago`;
     };
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-                <Loader2 className="size-10 animate-spin mb-4 text-accent-blue" />
-                <p className="text-sm font-medium uppercase tracking-widest animate-pulse">Syncing Financial Records...</p>
-            </div>
-        );
-    }
+    // REMOVED: Blocking loading screen
 
     return (
         <div className="size-full">
@@ -164,7 +157,7 @@ export function Payments() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {mockPayments.map((payment) => (
+                            {payments.map((payment) => (
                                 <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="text-sm text-gray-900">{formatTime(payment.date)}</div>
@@ -174,18 +167,18 @@ export function Payments() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="font-mono text-sm text-gray-700">
-                                            {payment.jobId}
+                                            {payment.jobId || 'N/A'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-sm text-gray-900">{payment.studentName}</span>
+                                        <span className="text-sm text-gray-900">{payment.studentName || 'Anonymous'}</span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="font-semibold text-gray-900">₹{payment.amount}</span>
+                                        <span className="font-semibold text-gray-900">₹{payment.amount || 0}</span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                            {payment.method}
+                                            {payment.method || 'Online'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">

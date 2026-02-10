@@ -4,7 +4,18 @@ import { db } from '../../shared/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, serverTimestamp, doc } from 'firebase/firestore';
 import { useAuth } from '../../shared/AuthContext';
 
-export function Chat() {
+
+const formatTime = (date) => {
+    if (!date) return 'Recently';
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 60000);
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff}m ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+    return date.toLocaleDateString();
+};
+
+export default function Chat() {
     const { user } = useAuth();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -89,14 +100,7 @@ export function Chat() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-                <Loader2 className="size-10 animate-spin mb-4 text-accent-blue" />
-                <p className="text-sm font-medium uppercase tracking-widest animate-pulse">Establishing Secure Stream...</p>
-            </div>
-        );
-    }
+    // REMOVED: Blocking loading screen
 
     return (
         <div className="size-full">

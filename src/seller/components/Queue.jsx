@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     FileText,
     CheckCircle2,
@@ -12,12 +12,12 @@ import {
     Loader2,
     AlertCircle
 } from 'lucide-react';
-import { db } from '../../shared/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../../shared/AuthContext';
+import { useSocket } from '../../shared/SocketContext';
 
-export function Queue() {
+export default function Queue() {
     const { user } = useAuth();
+    const socket = useSocket();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedJob, setSelectedJob] = useState(null);
@@ -25,55 +25,81 @@ export function Queue() {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
 
-    useEffect(() => {
-        const targetShopId = user?.shopId || user?.shop_id;
-
-        if (!targetShopId) {
+    const fetchJobs = useCallback(async () => {
+        if (!user?.token) {
             setLoading(false);
             return;
         }
-
-        const shopId = targetShopId.toString();
-        console.log(`🔥 Listening to job queue for shop: ${shopId}`);
-        const jobsRef = collection(db, 'shops', shopId, 'jobs');
-        const q = query(jobsRef, orderBy('createdAt', 'desc'));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const jobsData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                timestamp: doc.data().createdAt?.toDate() || new Date()
-            }));
-            setJobs(jobsData);
+        try {
+            const response = await fetch('/api/orders/shop', {
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                // Backend returns result.rows directly (array)
+                setJobs(Array.isArray(data) ? data.map(order => ({
+                    ...order,
+                    timestamp: new Date(order.created_at)
+                })) : []);
+            }
+        } catch (error) {
+            console.error("Error fetching jobs:", error);
+        } finally {
             setLoading(false);
-        }, (error) => {
-            console.error("Firestore subscription error:", error);
-            setLoading(false);
-        });
+        }
+    }, [user?.token]);
 
-        return () => unsubscribe();
-    }, [user?.shopId, user?.shop_id]);
+    useEffect(() => {
+        fetchJobs();
+
+        if (socket) {
+            socket.on('orderCreated', (newOrder) => {
+                setJobs(prev => [{ ...newOrder, timestamp: new Date(newOrder.created_at) }, ...prev]);
+            });
+
+            socket.on('statusUpdated', (updatedOrder) => {
+                setJobs(prev => prev.map(job => job.id === updatedOrder.id ? { ...job, ...updatedOrder, timestamp: new Date(updatedOrder.created_at) } : job));
+            });
+
+            return () => {
+                socket.off('orderCreated');
+                socket.off('statusUpdated');
+            };
+        }
+    }, [socket, fetchJobs]);
 
     const updateJobStatus = async (jobId, newStatus, reason) => {
+        if (!user?.token) {
+            alert("Authentication token missing. Please log in again.");
+            return;
+        }
         try {
-            const jobRef = doc(db, 'shops', user.shopId.toString(), 'jobs', jobId);
-            const updatePayload = {
-                status: newStatus,
-                updatedAt: serverTimestamp()
-            };
+            const response = await fetch(`/api/orders/${jobId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: JSON.stringify({ status: newStatus, reason })
+            });
 
-            // Only add reason if it's allowed by rules (currently only status & updatedAt are allowed)
-            // But we can update the rules later or keep it simple for now.
-            // If the user wants rejectionReason, it should be in the rules.
-
-            await updateDoc(jobRef, updatePayload);
-
-            setSelectedJob(null);
-            setShowRejectModal(false);
-            setRejectionReason('');
+            if (response.ok) {
+                const data = await response.json();
+                // orderController returns { success: true, order: updatedOrder }
+                const updatedOrder = data.order;
+                setJobs(prev => prev.map(job => job.id === jobId ? { ...job, ...updatedOrder, timestamp: new Date(updatedOrder.created_at) } : job));
+                setSelectedJob(null);
+                setShowRejectModal(false);
+                setRejectionReason('');
+            } else {
+                const errorData = await response.json();
+                alert(errorData.error || "Failed to update status");
+            }
         } catch (error) {
             console.error("Error updating job status:", error);
-            alert("Security Violation: You are not authorized to modify this record or field.");
+            alert("Connection error: Failed to update status");
         }
     };
 
@@ -83,20 +109,23 @@ export function Queue() {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'new': return 'bg-blue-100 text-blue-700';
+            case 'queued': return 'bg-blue-100 text-blue-700';
             case 'accepted': return 'bg-yellow-100 text-yellow-700';
             case 'printing': return 'bg-purple-100 text-purple-700';
+            case 'ready': return 'bg-emerald-100 text-emerald-700';
             case 'completed': return 'bg-green-100 text-green-700';
             case 'rejected': return 'bg-red-100 text-red-700';
+            case 'cancelled': return 'bg-red-100 text-red-700';
             default: return 'bg-gray-100 text-gray-700';
         }
     };
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'new': return Clock;
+            case 'queued': return Clock;
             case 'accepted': return CheckCircle2;
             case 'printing': return Printer;
+            case 'ready': return CheckCircle2;
             case 'completed': return CheckCheck;
             case 'rejected': return XCircle;
             default: return Clock;
@@ -104,6 +133,7 @@ export function Queue() {
     };
 
     const formatTime = (date) => {
+        if (!(date instanceof Date) || isNaN(date)) return '---';
         const now = new Date();
         const diff = Math.floor((now.getTime() - date.getTime()) / 60000);
         if (diff < 1) return 'Just now';
@@ -111,36 +141,22 @@ export function Queue() {
         return `${Math.floor(diff / 60)}h ago`;
     };
 
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-                <Loader2 className="size-10 animate-spin mb-4 text-accent-blue" />
-                <p className="text-sm font-medium uppercase tracking-widest animate-pulse">Synchronizing Queue...</p>
-            </div>
-        );
-    }
+    // REMOVED: Blocking loading screen
 
     return (
         <div className="size-full">
-            {/* Header */}
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2 leading-tight tracking-tight">Print Queue</h1>
                 <p className="text-gray-500 font-medium">Manage incoming print jobs in real-time</p>
-                {(!user?.shopId && !user?.shop_id) && (
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                        <AlertCircle size={14} /> Security Warning: Shop Identifier Missing from Identity Token
-                    </div>
-                )}
             </div>
 
-            {/* Filter Tabs */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                {['all', 'new', 'accepted', 'printing', 'completed', 'rejected'].map((status) => (
+                {['all', 'queued', 'accepted', 'printing', 'ready', 'completed', 'rejected'].map((status) => (
                     <button
                         key={status}
                         onClick={() => setFilterStatus(status)}
                         className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${filterStatus === status
-                            ? 'bg-gray-900 text-white shadow-md'
+                            ? 'bg-indigo-600 text-white shadow-md'
                             : 'bg-white text-gray-600 hover:bg-gray-100'
                             }`}
                     >
@@ -154,7 +170,6 @@ export function Queue() {
                 ))}
             </div>
 
-            {/* Jobs List */}
             <div className="grid gap-4">
                 {filteredJobs.map((job) => {
                     const StatusIcon = getStatusIcon(job.status);
@@ -165,67 +180,46 @@ export function Queue() {
                             className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow"
                         >
                             <div className="flex items-start justify-between gap-4">
-                                {/* Left: Job Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-3 mb-3">
-                                        <div className="bg-gray-100 p-2 rounded-lg">
-                                            <FileText className="size-6 text-gray-700" />
+                                        <div className="bg-indigo-50 p-2 rounded-lg">
+                                            <FileText className="size-6 text-indigo-600" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-semibold text-gray-900 truncate">{job.fileName}</h3>
+                                            <h3 className="font-semibold text-gray-900 truncate">{job.filename}</h3>
                                             <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                <span className="font-mono">{job.id}</span>
+                                                <span className="font-mono text-xs">#{job.id}</span>
                                                 <span>•</span>
                                                 <span>{formatTime(job.timestamp)}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Job Details Grid */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                                         <div className="flex items-center gap-2 text-sm">
                                             <FileText className="size-4 text-gray-400" />
-                                            <span className="text-gray-600">{job.pages} pages</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Palette className="size-4 text-gray-400" />
-                                            <span className="text-gray-600">
-                                                {job.color === 'color' ? 'Color' : 'B&W'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Copy className="size-4 text-gray-400" />
-                                            <span className="text-gray-600">{job.copies} copies</span>
+                                            <span className="text-gray-600 font-medium tracking-tight">Queue #{job.queue_number}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm">
                                             <User className="size-4 text-gray-400" />
-                                            <span className="text-gray-600">{job.studentName}</span>
-                                            <span className="text-xs text-gray-400">({job.studentId})</span>
+                                            <span className="text-gray-600 truncate">{job.display_name || 'Student'}</span>
                                         </div>
                                     </div>
 
-                                    {/* Status & Payment */}
                                     <div className="flex items-center gap-2">
                                         <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
                                             <StatusIcon className="size-3" />
                                             {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                                         </span>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${job.paymentStatus === 'paid'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-orange-100 text-orange-700'
-                                            }`}>
-                                            {job.paymentStatus === 'paid' ? '✓ Paid' : 'Pending Payment'}
-                                        </span>
                                     </div>
                                 </div>
 
-                                {/* Right: Action Buttons */}
                                 <div className="flex flex-col gap-2">
-                                    {job.status === 'new' && (
+                                    {job.status === 'queued' && (
                                         <>
                                             <button
                                                 onClick={() => updateJobStatus(job.id, 'accepted')}
-                                                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
                                             >
                                                 <CheckCircle2 className="size-4" />
                                                 Accept
@@ -235,7 +229,7 @@ export function Queue() {
                                                     setSelectedJob(job);
                                                     setShowRejectModal(true);
                                                 }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
                                             >
                                                 <XCircle className="size-4" />
                                                 Reject
@@ -245,7 +239,7 @@ export function Queue() {
                                     {job.status === 'accepted' && (
                                         <button
                                             onClick={() => updateJobStatus(job.id, 'printing')}
-                                            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                                            className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium"
                                         >
                                             <Printer className="size-4" />
                                             Start Print
@@ -253,8 +247,17 @@ export function Queue() {
                                     )}
                                     {job.status === 'printing' && (
                                         <button
+                                            onClick={() => updateJobStatus(job.id, 'ready')}
+                                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                                        >
+                                            <CheckCircle2 className="size-4" />
+                                            Mark Ready
+                                        </button>
+                                    )}
+                                    {job.status === 'ready' && (
+                                        <button
                                             onClick={() => updateJobStatus(job.id, 'completed')}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                                         >
                                             <CheckCheck className="size-4" />
                                             Complete
@@ -268,49 +271,47 @@ export function Queue() {
             </div>
 
             {filteredJobs.length === 0 && (
-                <div className="text-center py-12 bg-white rounded-xl">
-                    <FileText className="size-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No jobs in this category</p>
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                    <FileText className="size-12 text-gray-100 mx-auto mb-3" />
+                    <p className="text-gray-400 font-medium">No jobs in this category</p>
                 </div>
             )}
 
-            {/* Reject Modal */}
-            {
-                showRejectModal && selectedJob && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Reject Job</h2>
-                            <p className="text-gray-600 mb-4">
-                                Why are you rejecting <span className="font-semibold">{selectedJob.fileName}</span>?
-                            </p>
-                            <textarea
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                placeholder="Enter reason (e.g., Poor file quality, Wrong format)"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
-                                rows={3}
-                            />
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => {
-                                        setShowRejectModal(false);
-                                        setRejectionReason('');
-                                    }}
-                                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => updateJobStatus(selectedJob.id, 'rejected', rejectionReason)}
-                                    disabled={!rejectionReason.trim()}
-                                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Reject Job
-                                </button>
-                            </div>
+            {showRejectModal && selectedJob && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Reject Job</h2>
+                        <p className="text-gray-600 mb-4">
+                            Why are you rejecting <span className="font-semibold text-indigo-900">{selectedJob.filename}</span>?
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Enter reason (e.g., Poor file quality, Wrong format)"
+                            className="w-full px-4 py-3 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 transition-all"
+                            rows={3}
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowRejectModal(false);
+                                    setRejectionReason('');
+                                }}
+                                className="flex-1 px-4 py-2 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors font-medium border border-gray-100"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => updateJobStatus(selectedJob.id, 'rejected', rejectionReason)}
+                                disabled={!rejectionReason.trim()}
+                                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-red-200"
+                            >
+                                Reject Job
+                            </button>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
         </div>
     );
 }

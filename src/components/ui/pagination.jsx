@@ -1,8 +1,12 @@
 import * as React from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import {
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    MoreHorizontalIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "./button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 function Pagination({ className, ...props }) {
     return (
@@ -16,7 +20,10 @@ function Pagination({ className, ...props }) {
     );
 }
 
-function PaginationContent({ className, ...props }) {
+function PaginationContent({
+    className,
+    ...props
+}) {
     return (
         <ul
             data-slot="pagination-content"
@@ -26,10 +33,8 @@ function PaginationContent({ className, ...props }) {
     );
 }
 
-function PaginationItem({ className, ...props }) {
-    return (
-        <li data-slot="pagination-item" className={cn("", className)} {...props} />
-    );
+function PaginationItem({ ...props }) {
+    return <li data-slot="pagination-item" {...props} />;
 }
 
 function PaginationLink({
@@ -66,7 +71,7 @@ function PaginationPrevious({
             className={cn("gap-1 px-2.5 sm:pl-2.5", className)}
             {...props}
         >
-            <ChevronLeft />
+            <ChevronLeftIcon />
             <span className="hidden sm:block">Previous</span>
         </PaginationLink>
     );
@@ -84,7 +89,7 @@ function PaginationNext({
             {...props}
         >
             <span className="hidden sm:block">Next</span>
-            <ChevronRight />
+            <ChevronRightIcon />
         </PaginationLink>
     );
 }
@@ -100,7 +105,7 @@ function PaginationEllipsis({
             className={cn("flex size-9 items-center justify-center", className)}
             {...props}
         >
-            <MoreHorizontal className="size-4" />
+            <MoreHorizontalIcon className="size-4" />
             <span className="sr-only">More pages</span>
         </span>
     );
@@ -109,9 +114,9 @@ function PaginationEllipsis({
 export {
     Pagination,
     PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
     PaginationLink,
-    PaginationNext,
+    PaginationItem,
     PaginationPrevious,
+    PaginationNext,
+    PaginationEllipsis,
 };

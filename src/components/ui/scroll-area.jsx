@@ -18,7 +18,7 @@ function ScrollArea({
         >
             <ScrollAreaPrimitive.Viewport
                 data-slot="scroll-area-viewport"
-                className="h-full w-full rounded-[inherit]"
+                className="h-full w-full rounded-[inherit] outline-none"
             >
                 {children}
             </ScrollAreaPrimitive.Viewport>
@@ -38,7 +38,7 @@ function ScrollBar({
             data-slot="scroll-area-scrollbar"
             orientation={orientation}
             className={cn(
-                "flex touch-none select-none transition-colors",
+                "flex touch-none transition-colors select-none",
                 orientation === "vertical" &&
                 "h-full w-2.5 border-l border-l-transparent p-[1px]",
                 orientation === "horizontal" &&

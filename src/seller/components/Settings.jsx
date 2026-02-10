@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Circle, Bell, Zap, Palette, Printer } from 'lucide-react';
 
-export function Settings({ isOnline, setIsOnline }) {
+export default function Settings({ isOnline, setIsOnline }) {
     const [settings, setSettings] = useState({
         notifications: true,
         autoAcceptJobs: false,

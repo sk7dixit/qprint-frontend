@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, setPersistence, browserSessionPersistence } from "firebase/auth";
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,6 +16,13 @@ import { getFirestore } from "firebase/firestore";
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+
+// Set persistence to session (logout when tab closed)
+setPersistence(auth, browserSessionPersistence)
+    .catch((error) => {
+        console.error("Auth persistence error:", error);
+    });
+
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 

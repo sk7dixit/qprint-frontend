@@ -21,6 +21,14 @@ export default function CompleteProfile() {
         if (user?.name && !name) setName(user.name);
     }, [user, name]);
 
+    // PROTECT ROUTE: Redirect if profile is already complete (Boolean check)
+    useEffect(() => {
+        if (user?.profile_complete === true) {
+            console.log("Profile already complete, redirecting to dashboard...");
+            navigate("/student/dashboard", { replace: true });
+        }
+    }, [user, navigate]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -29,6 +37,12 @@ export default function CompleteProfile() {
         // Validation
         if (!name.trim() || !enrollmentId.trim() || !mobile.trim()) {
             setError("Please fill in all required fields.");
+            setLoading(false);
+            return;
+        }
+
+        if (enrollmentId.length !== 5 && enrollmentId.length < 10) {
+            setError("ID must be exactly 5 digits (Staff) or at least 10 digits (Student).");
             setLoading(false);
             return;
         }
@@ -144,9 +158,12 @@ export default function CompleteProfile() {
                                 <input
                                     type="text"
                                     value={enrollmentId}
-                                    onChange={(e) => setEnrollmentId(e.target.value)}
-                                    placeholder="e.g. 210303124123"
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl pl-12 pr-4 text-sm font-bold focus:bg-white focus:border-blue-600 transition-all outline-none shadow-sm"
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        setEnrollmentId(val);
+                                    }}
+                                    placeholder="Enrollment ID / Staff ID"
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl pl-12 pr-4 text-sm font-bold focus:bg-white focus:border-blue-600 transition-all outline-none shadow-sm placeholder:font-medium placeholder:text-gray-400"
                                     disabled={loading}
                                 />
                             </div>

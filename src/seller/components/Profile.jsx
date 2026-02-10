@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Store, MapPin, Phone, Clock, Mail, Shield, Edit2, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '../../shared/AuthContext';
 
-export function Profile() {
+export default function Profile() {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);

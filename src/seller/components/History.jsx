@@ -84,7 +84,7 @@ const mockHistory = [
     },
 ];
 
-export function History() {
+export default function History() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
