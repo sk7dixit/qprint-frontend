@@ -31,7 +31,7 @@ export default function Queue() {
             return;
         }
         try {
-            const response = await fetch('/api/orders/shop', {
+            const response = await fetch('http://localhost:5000/api/print-jobs/shop', {
                 headers: {
                     'Authorization': `Bearer ${user.token}`
                 }
@@ -76,7 +76,7 @@ export default function Queue() {
             return;
         }
         try {
-            const response = await fetch(`/api/orders/${jobId}/status`, {
+            const response = await fetch(`http://localhost:5000/api/print-jobs/${jobId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

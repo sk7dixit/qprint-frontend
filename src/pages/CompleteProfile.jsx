@@ -23,7 +23,7 @@ export default function CompleteProfile() {
 
     // PROTECT ROUTE: Redirect if profile is already complete (Boolean check)
     useEffect(() => {
-        if (user?.profile_complete === true) {
+        if (user?.isProfileComplete === true) {
             console.log("Profile already complete, redirecting to dashboard...");
             navigate("/student/dashboard", { replace: true });
         }
@@ -72,7 +72,7 @@ export default function CompleteProfile() {
             if (response.ok) {
                 setSuccess(true);
                 // Update user context with full profile
-                setUser({ ...user, ...data.user, profile_complete: true });
+                setUser({ ...user, ...data.user, isProfileComplete: true });
 
                 setTimeout(() => {
                     navigate("/student/dashboard", { replace: true });

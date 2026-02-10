@@ -96,32 +96,32 @@ export function Dashboard() {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
-                    onClick={() => navigate('/student/upload')}
+                    onClick={() => navigate('/student/shops')}
                     className="bg-indigo-600 text-white p-8 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-between group shadow-lg shadow-indigo-100 active:scale-[0.98]"
                 >
                     <div className="text-left">
-                        <h3 className="text-2xl font-heading font-bold mb-2">Upload File</h3>
+                        <h3 className="text-2xl font-heading font-bold mb-2">Start Printing</h3>
                         <p className="text-indigo-100/80 text-sm font-medium">
-                            Upload and prepare your document for printing
+                            Choose a shop and upload your document to print instantly
                         </p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Upload className="w-6 h-6" />
+                        <Printer className="w-6 h-6" />
                     </div>
                 </button>
 
                 <button
-                    onClick={() => navigate('/student/shops')}
+                    onClick={() => navigate('/student/editor')}
                     className="bg-white border-2 border-indigo-600 text-indigo-600 p-8 rounded-2xl hover:bg-indigo-50 transition-all flex items-center justify-between group active:scale-[0.98]"
                 >
                     <div className="text-left">
-                        <h3 className="text-2xl font-heading font-bold mb-2">Find Shop</h3>
+                        <h3 className="text-2xl font-heading font-bold mb-2">Edit a Document</h3>
                         <p className="text-indigo-600/60 text-sm font-medium">
-                            Browse nearby print shops and pricing
+                            Rotate, delete pages, or use AI to fix your document before printing
                         </p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Store className="w-6 h-6" />
+                        <FileText className="w-6 h-6" />
                     </div>
                 </button>
             </div>

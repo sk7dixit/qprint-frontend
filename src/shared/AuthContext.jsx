@@ -7,11 +7,24 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [shop, setShop] = useState(null);
-    const [authState, setAuthState] = useState("loading"); // loading | authenticated | unauthenticated
+    const [authState, setAuthState] = useState("loading"); // loading | authenticated | unauthenticated | error
+    const [error, setError] = useState(null);
+
+    // Timeout guard for loading state
+    useEffect(() => {
+        let timeout;
+        if (authState === "loading") {
+            timeout = setTimeout(() => {
+                console.error("⛔ Auth loading timed out after 10s");
+                setAuthState("error");
+                setError("Login is taking too long. Please refresh the page.");
+            }, 10000); // 10s timeout
+        }
+        return () => clearTimeout(timeout);
+    }, [authState]);
 
     const syncWithBackend = async (uid, token) => {
         try {
-            // Use the Google auth endpoint to sync user existence and get profile status
             const response = await fetch("/api/auth/google", {
                 method: "POST",
                 headers: {
@@ -22,13 +35,17 @@ export const AuthProvider = ({ children }) => {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log("INTERNAL DEBUG: Backend Sync User:", data.user);
+                localStorage.setItem('token', token); // Persist for reliability across reload/standalone axios
                 return data.user;
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                console.error("❌ Backend sync failed with status:", response.status, errData);
+                throw new Error(errData.error || "Backend synchronization failed");
             }
         } catch (e) {
-            console.error("Failed to sync with backend:", e);
+            console.error("❌ Failed to sync with backend:", e.message);
+            throw e;
         }
-        return null;
     };
 
     const refreshUser = async () => {
@@ -38,20 +55,14 @@ export const AuthProvider = ({ children }) => {
             const backendUser = await syncWithBackend(auth.currentUser.uid, tokenResult.token);
 
             if (backendUser) {
-                // Merge Firebase auth data with Backend Postgres data
                 setUser({
                     uid: auth.currentUser.uid,
                     email: auth.currentUser.email,
                     name: auth.currentUser.displayName,
-                    ...backendUser, // This includes role, profile_complete, etc.
+                    ...backendUser,
+                    isProfileComplete: backendUser.is_profile_complete,
                     token: tokenResult.token
                 });
-
-                // If shopkeeper, fetch shop data separately if needed, or rely on backendUser if it includes it
-                if (backendUser.role === 'seller' && backendUser.id) {
-                    // specific shop fetch if needed, otherwise backendUser might suffice
-                    // keeping original logic structure if shop data was distinct
-                }
             }
         } catch (e) {
             console.error("Failed to refresh user profile:", e);
@@ -59,20 +70,27 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        const unsub = listenToAuthChanges(async (u) => {
-            if (u) {
-                const backendUser = await syncWithBackend(u.uid, u.token);
-                if (backendUser) {
-                    setUser({
-                        ...u,
-                        ...backendUser
-                    });
-                } else {
-                    // Fallback to just firebase data if backend fails, but this is risky for the profile_complete check
-                    console.warn("Backend sync failed, using Firebase data only");
-                    setUser(u);
+        const unsub = listenToAuthChanges(async (firebaseUser) => {
+            if (firebaseUser) {
+                try {
+                    const backendUser = await syncWithBackend(firebaseUser.uid, firebaseUser.token);
+
+                    if (backendUser) {
+                        setUser({
+                            ...firebaseUser,
+                            ...backendUser,
+                            isProfileComplete: backendUser.is_profile_complete
+                        });
+                        setAuthState("authenticated");
+                    } else {
+                        throw new Error("No user data returned from backend");
+                    }
+                } catch (err) {
+                    console.error("⛔ Redirecting to error state due to sync failure");
+                    setUser(null);
+                    setAuthState("error");
+                    setError(err.message || "Could not connect to authentication server.");
                 }
-                setAuthState("authenticated");
             } else {
                 setUser(null);
                 setShop(null);
@@ -86,6 +104,7 @@ export const AuthProvider = ({ children }) => {
         const { signOut } = await import("firebase/auth");
         try {
             await signOut(auth);
+            localStorage.removeItem('token');
         } catch (error) {
             console.error("Logout error:", error);
             throw error;
@@ -100,6 +119,8 @@ export const AuthProvider = ({ children }) => {
             loading: authState === "loading",
             authenticated: authState === "authenticated",
             unauthenticated: authState === "unauthenticated",
+            isError: authState === "error",
+            error,
             authState,
             refreshUser,
             logout

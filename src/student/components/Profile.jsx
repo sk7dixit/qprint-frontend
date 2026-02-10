@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import { User, Mail, Smartphone, BookOpen, Shield, Bell, Eye, EyeOff, Layout, LogOut, ChevronRight, Store } from 'lucide-react';
+import { useAuth } from '../../shared/AuthContext';
 
 export function Profile() {
-    const [user] = useState({
-        name: 'Shashwat Maurya',
-        enrollmentId: '201041011123',
-        email: 'shashwat.maurya@university.edu',
-        mobile: '+91 98765 43210',
-        type: 'Student',
-    });
+    const { user, logout } = useAuth();
 
     const [notifications, setNotifications] = useState({
         orderStatus: true,
@@ -28,7 +23,7 @@ export function Profile() {
                 <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
                     <div className="relative">
                         <div className="w-32 h-32 rounded-[2.5rem] bg-indigo-600 flex items-center justify-center text-white text-5xl font-black shadow-2xl shadow-indigo-200 border-4 border-white">
-                            SM
+                            {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'UN'}
                         </div>
                         <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 rounded-2xl border-4 border-white flex items-center justify-center shadow-lg">
                             <Shield className="w-5 h-5 text-white" />
@@ -42,7 +37,7 @@ export function Profile() {
                                 A-Level Identity
                             </span>
                             <span className="px-4 py-1 bg-gray-50 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-100">
-                                {user.type} Verified
+                                {user?.role || 'User'} Verified
                             </span>
                         </div>
                     </div>
@@ -177,7 +172,10 @@ export function Profile() {
 
                     <div className="bg-white border-2 border-red-50 rounded-[2.5rem] p-8 shadow-sm">
                         <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em] mb-8">Danger Protocol</h3>
-                        <button className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-red-100 hover:bg-red-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                        <button
+                            onClick={() => logout()}
+                            className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-red-100 hover:bg-red-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                        >
                             <LogOut className="w-4 h-4" />
                             Sign Out
                         </button>

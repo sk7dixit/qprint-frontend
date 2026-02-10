@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
     ListOrdered,
     CheckCircle2,
@@ -11,9 +12,11 @@ import {
 import { db } from '../../shared/firebase';
 import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
 import { useAuth } from '../../shared/AuthContext';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Dashboard({ onNavigate }) {
     const { user } = useAuth();
+    const { shop } = useOutletContext();
     const [stats, setStats] = useState({
         activeQueue: 0,
         completedToday: 0,
@@ -25,64 +28,46 @@ export default function Dashboard({ onNavigate }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const targetShopId = user?.shopId || user?.shop_id;
-
-        if (!targetShopId) {
-            setLoading(false);
-            return;
-        }
-
-        const shopId = targetShopId.toString();
-        const jobsRef = collection(db, 'shops', shopId, 'jobs');
-        const paymentsRef = collection(db, 'shops', shopId, 'payments');
-
-        const unsubJobs = onSnapshot(jobsRef, (snapshot) => {
-            const today = new Date().toDateString();
-            const jobs = snapshot.docs.map(doc => ({ ...doc.data(), createdAt: doc.data().createdAt?.toDate() }));
-
-            const active = jobs.filter(j => j.status === 'new').length;
-            const completed = jobs.filter(j => j.status === 'completed' && j.createdAt?.toDateString() === today).length;
-
-            setStats(prev => ({ ...prev, activeQueue: active, completedToday: completed }));
-
-            const recent = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
-                .slice(0, 4)
-                .map(j => {
-                    const date = j.createdAt?.toDate ? j.createdAt.toDate() : j.createdAt;
-                    return {
-                        id: j.id,
-                        time: date instanceof Date ? formatDistance(date) : 'Recently',
-                        action: j.status.charAt(0).toUpperCase() + j.status.slice(1),
-                        student: j.studentName || 'Student'
-                    };
+        const fetchDashboardData = async () => {
+            try {
+                if (!user?.token) return;
+                const res = await axios.get('/api/print-jobs/shop', {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
                 });
-            setRecentActivity(recent);
-            setLoading(false);
-        }, (error) => {
-            console.error("Firebase Jobs Snapshot Error:", error);
-            setLoading(false);
-        });
+                const jobs = res.data;
+                const today = new Date().toDateString();
 
-        const unsubPayments = onSnapshot(paymentsRef, (snapshot) => {
-            const today = new Date().toDateString();
-            const payments = snapshot.docs.map(doc => ({ ...doc.data(), createdAt: doc.data().createdAt?.toDate() }));
+                const active = jobs.filter(j => ['created', 'queued'].includes(j.status)).length;
+                const completed = jobs.filter(j => j.status === 'completed' && new Date(j.created_at).toDateString() === today).length;
+                const earnings = jobs
+                    .filter(j => j.status === 'completed' && new Date(j.created_at).toDateString() === today)
+                    .reduce((sum, j) => sum + parseFloat(j.amount || 0), 0);
 
-            const pending = payments.filter(p => p.status === 'pending').length;
-            const earnings = payments
-                .filter(p => p.status === 'settled' && p.createdAt?.toDateString() === today)
-                .reduce((sum, p) => sum + (p.amount || 0), 0);
+                setStats(prev => ({
+                    ...prev,
+                    activeQueue: active,
+                    completedToday: completed,
+                    totalEarningsToday: earnings
+                }));
 
-            setStats(prev => ({ ...prev, pendingPayments: pending, totalEarningsToday: earnings }));
-        }, (error) => {
-            console.error("Firebase Payments Snapshot Error:", error);
-        });
+                const recent = jobs
+                    .slice(0, 4)
+                    .map(j => ({
+                        id: j.id,
+                        time: formatDistance(new Date(j.created_at)),
+                        action: j.status.charAt(0).toUpperCase() + j.status.slice(1),
+                        student: j.display_name || 'Student'
+                    }));
+                setRecentActivity(recent);
 
-        return () => {
-            unsubJobs();
-            unsubPayments();
+            } catch (error) {
+                console.error("Dashboard Fetch Error:", error);
+            } finally {
+                setLoading(false);
+            }
         };
+
+        fetchDashboardData();
     }, [user?.shopId, user?.shop_id]);
 
     function formatDistance(date) {
@@ -116,17 +101,24 @@ export default function Dashboard({ onNavigate }) {
             )}
 
             {/* 5.2 System Status Banner (Expanded) */}
-            <div className="bg-gradient-to-r from-[#10b981] to-[#059669] rounded-[20px] px-8 py-6 mb-8 text-white shadow-[0_12px_40px_rgba(16,185,129,0.2)] min-h-[100px] flex items-center justify-between border border-white/10">
+            <div className={`rounded-[20px] px-8 py-6 mb-8 text-white shadow-xl min-h-[100px] flex items-center justify-between border border-white/10 transition-colors duration-500 ${shop?.is_open ? 'bg-gradient-to-r from-[#10b981] to-[#059669]' : 'bg-gradient-to-r from-[#ef4444] to-[#dc2626]'
+                }`}>
                 <div className="flex items-center gap-6">
                     <div className="bg-white/20 p-3.5 rounded-2xl">
-                        <Circle className="size-6 fill-white animate-pulse" />
+                        <Circle className={`size-6 fill-white ${shop?.is_open ? 'animate-pulse' : ''}`} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold uppercase tracking-[0.15em] opacity-80">Operational System Status</span>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.15em] opacity-80">Manual Shop Control</span>
                         </div>
-                        <h2 className="text-2xl font-bold leading-none mt-1.5">Online & Ready</h2>
-                        <p className="text-sm font-medium opacity-80 mt-1.5">The system is fully operational and accepting print jobs.</p>
+                        <h2 className="text-2xl font-bold leading-none mt-1.5">
+                            {shop?.is_open ? 'Online & Ready' : 'Currently Closed'}
+                        </h2>
+                        <p className="text-sm font-medium opacity-80 mt-1.5">
+                            {shop?.is_open
+                                ? 'The system is actively accepting print jobs.'
+                                : 'Incoming print jobs are paused indefinitely.'}
+                        </p>
                     </div>
                 </div>
                 <div className="text-right pr-4">

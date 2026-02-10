@@ -16,13 +16,17 @@ import {
     FileText,
     MousePointer2,
     Undo2,
-    History
+    History,
+    Upload
 } from 'lucide-react';
 
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useAuth } from '../../shared/AuthContext';
 
 export function PDFEditor() {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { draftId } = useParams();
     const [pages, setPages] = useState(
         Array.from({ length: 8 }, (_, i) => ({
             id: i + 1,
@@ -79,10 +83,10 @@ export function PDFEditor() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}` // Fallback auth
+                    'Authorization': `Bearer ${user?.token}`
                 },
                 body: JSON.stringify({
-                    fileId: 1, // Mock fileId
+                    fileId: draftId, // Use draftId from URL
                     instructions: actionStack
                 })
             });
@@ -163,7 +167,7 @@ export function PDFEditor() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${user?.token}`
                 },
                 body: JSON.stringify({ task, text: textToProcess })
             });
@@ -215,6 +219,76 @@ export function PDFEditor() {
     };
 
     const selectedCount = pages.filter((p) => p.selected).length;
+
+    // Handle initial upload if no draftId
+    const handleInitialUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsProcessing(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('source', 'editor');
+
+        try {
+            const response = await fetch('/api/print-drafts/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${user?.token}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                navigate(`/student/editor/${data.draftId}`);
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    if (!draftId) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+                <div className="max-w-md w-full text-center space-y-8">
+                    <div className="space-y-4">
+                        <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-indigo-100/50">
+                            <Sparkles className="w-10 h-10" />
+                        </div>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">PDF AI Editor</h1>
+                        <p className="text-slate-500 font-medium">Upload a document to start editing, fixing spelling, or rotating pages with AI support.</p>
+                    </div>
+
+                    <div className="relative group">
+                        <input
+                            type="file"
+                            onChange={handleInitialUpload}
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            disabled={isProcessing}
+                        />
+                        <div className="p-12 border-2 border-dashed border-indigo-200 rounded-[2.5rem] bg-white group-hover:border-indigo-500 group-hover:bg-indigo-50 transition-all">
+                            <Upload className="w-8 h-8 text-indigo-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+                            <p className="font-bold text-slate-600 group-hover:text-indigo-600">
+                                {isProcessing ? 'Processing File...' : 'Drop file here or click to upload'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-2">Supports PDF, Word, PPT & Images</p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => navigate('/student/dashboard')}
+                        className="text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
+                    >
+                        Go back to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.16)-1px)] -m-6">
@@ -329,7 +403,7 @@ export function PDFEditor() {
 
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => navigate('/student/upload')}
+                                    onClick={() => navigate('/student/dashboard')}
                                     className="h-10 px-4 bg-white text-slate-600 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
                                 >
                                     <ChevronLeft className="size-4" />
@@ -365,7 +439,7 @@ export function PDFEditor() {
                                 </button>
 
                                 <button
-                                    onClick={() => navigate('/student/compress')}
+                                    onClick={() => navigate('/student/shops')}
                                     className="h-10 px-6 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
                                 >
                                     Continue

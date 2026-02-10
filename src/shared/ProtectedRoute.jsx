@@ -18,7 +18,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (!user.profile_complete && location.pathname !== '/complete-profile') {
+    if (user.isProfileComplete === false && location.pathname !== '/complete-profile') {
         return <Navigate to="/complete-profile" replace />;
     }
 

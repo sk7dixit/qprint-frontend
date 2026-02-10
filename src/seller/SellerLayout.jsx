@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import {
     LayoutDashboard,
     ListOrdered,
@@ -81,7 +82,30 @@ export default function SellerLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isOnline, setIsOnline] = useState(false);
+    const [shop, setShop] = useState(null);
+    const [loadingShop, setLoadingShop] = useState(true);
+
+    const fetchShopDetails = async () => {
+        if (!user?.shop_id && !user?.shopId) return;
+        try {
+            if (!user?.token) return;
+            const shopId = user.shop_id || user.shopId;
+            const res = await axios.get(`/api/shops/${shopId}`, {
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+            setShop(res.data);
+        } catch (error) {
+            console.error("Failed to fetch shop details", error);
+        } finally {
+            setLoadingShop(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchShopDetails();
+    }, [user?.shop_id, user?.shopId]);
 
     useEffect(() => {
         if (user && user.force_password_reset === true) {
@@ -171,7 +195,7 @@ export default function SellerLayout() {
                     </div>
 
                     <div className="animate-in fade-in duration-500">
-                        <Outlet context={{ isOnline, setIsOnline }} />
+                        <Outlet context={{ shop, setShop, fetchShopDetails, loadingShop }} />
                     </div>
                 </div>
             </main>

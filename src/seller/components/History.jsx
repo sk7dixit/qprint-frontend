@@ -1,103 +1,48 @@
-import { useState } from 'react';
-import { FileText, CheckCircle2, XCircle, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
+import axios from 'axios';
+import { toast } from "sonner";
 
-// Mock data
-const mockHistory = [
-    {
-        id: 'J023',
-        fileName: 'Assignment_Chapter_5.pdf',
-        pages: 12,
-        color: 'bw',
-        copies: 1,
-        studentName: 'Rahul Kumar',
-        status: 'completed',
-        completedDate: new Date(Date.now() - 2 * 60000),
-        amount: 45,
-    },
-    {
-        id: 'J022',
-        fileName: 'Project_Report_Final.pdf',
-        pages: 45,
-        color: 'color',
-        copies: 2,
-        studentName: 'Priya Sharma',
-        status: 'completed',
-        completedDate: new Date(Date.now() - 15 * 60000),
-        amount: 120,
-    },
-    {
-        id: 'J020',
-        fileName: 'Resume_2024.pdf',
-        pages: 2,
-        color: 'bw',
-        copies: 5,
-        studentName: 'Sneha Reddy',
-        status: 'completed',
-        completedDate: new Date(Date.now() - 40 * 60000),
-        amount: 65,
-    },
-    {
-        id: 'J019',
-        fileName: 'Presentation_Slides.pdf',
-        pages: 20,
-        color: 'color',
-        copies: 1,
-        studentName: 'Vikram Singh',
-        status: 'completed',
-        completedDate: new Date(Date.now() - 60 * 60000),
-        amount: 90,
-    },
-    {
-        id: 'J018',
-        fileName: 'Corrupted_File.pdf',
-        pages: 0,
-        color: 'bw',
-        copies: 1,
-        studentName: 'Ankit Verma',
-        status: 'rejected',
-        completedDate: new Date(Date.now() - 120 * 60000),
-        rejectionReason: 'File is corrupted and cannot be opened',
-        amount: 0,
-    },
-    {
-        id: 'J017',
-        fileName: 'Notes_Mathematics.pdf',
-        pages: 25,
-        color: 'bw',
-        copies: 2,
-        studentName: 'Neha Gupta',
-        status: 'completed',
-        completedDate: new Date(Date.now() - 180 * 60000),
-        amount: 75,
-    },
-    {
-        id: 'J016',
-        fileName: 'Large_Book.pdf',
-        pages: 500,
-        color: 'bw',
-        copies: 1,
-        studentName: 'Rohan Shah',
-        status: 'rejected',
-        completedDate: new Date(Date.now() - 240 * 60000),
-        rejectionReason: 'Too many pages. Exceeds printer capacity',
-        amount: 0,
-    },
-];
+import { useAuth } from '../../shared/AuthContext';
 
 export default function History() {
+    const { user } = useAuth();
+    const [jobs, setJobs] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredJobs = mockHistory.filter((job) => {
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!user?.token) return;
+            try {
+                const res = await axios.get('/api/print-jobs/shop', {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                setJobs(res.data);
+            } catch (error) {
+                console.error("Fetch shop history error:", error);
+                toast.error("Failed to load shop history");
+            } finally {
+                setLoading(false);
+            }
+        };
+        if (user) {
+            fetchHistory();
+        }
+    }, [user]);
+
+    const filteredJobs = jobs.filter((job) => {
         const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
         const matchesSearch =
-            job.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.studentName.toLowerCase().includes(searchTerm.toLowerCase());
+            job.id.toString().includes(searchTerm.toLowerCase()) ||
+            job.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (job.display_name || '').toLowerCase().includes(searchTerm.toLowerCase());
         return matchesStatus && matchesSearch;
     });
 
-    const formatTime = (date) => {
+    const formatTime = (dateStr) => {
+        const date = new Date(dateStr);
         const now = new Date();
         const diff = Math.floor((now.getTime() - date.getTime()) / 60000);
         if (diff < 1) return 'Just now';
@@ -106,8 +51,16 @@ export default function History() {
         return date.toLocaleDateString();
     };
 
-    const completedCount = mockHistory.filter((j) => j.status === 'completed').length;
-    const rejectedCount = mockHistory.filter((j) => j.status === 'rejected').length;
+    const completedCount = jobs.filter((j) => j.status === 'completed').length;
+    const rejectedCount = jobs.filter((j) => j.status === 'rejected').length;
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="size-full">
@@ -126,7 +79,7 @@ export default function History() {
                         </div>
                         <span className="text-sm text-gray-600">Total Jobs</span>
                     </div>
-                    <p className="text-4xl font-bold text-gray-900">{mockHistory.length}</p>
+                    <p className="text-4xl font-bold text-gray-900">{jobs.length}</p>
                 </div>
 
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -166,33 +119,18 @@ export default function History() {
 
                     {/* Status Filter */}
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => setFilterStatus('all')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all ${filterStatus === 'all'
-                                ? 'bg-gray-900 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                        >
-                            All
-                        </button>
-                        <button
-                            onClick={() => setFilterStatus('completed')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all ${filterStatus === 'completed'
-                                ? 'bg-green-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                        >
-                            Completed
-                        </button>
-                        <button
-                            onClick={() => setFilterStatus('rejected')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all ${filterStatus === 'rejected'
-                                ? 'bg-red-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                        >
-                            Rejected
-                        </button>
+                        {['all', 'completed', 'rejected', 'cancelled'].map(s => (
+                            <button
+                                key={s}
+                                onClick={() => setFilterStatus(s)}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all ${filterStatus === s
+                                    ? 'bg-gray-900 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                            >
+                                {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -203,24 +141,12 @@ export default function History() {
                     <table className="w-full">
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Job Info
-                                </th>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Student
-                                </th>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Details
-                                </th>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Date
-                                </th>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Status
-                                </th>
-                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">
-                                    Amount
-                                </th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Job Info</th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Student</th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Specs</th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Date</th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Status</th>
+                                <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Amount</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -232,56 +158,36 @@ export default function History() {
                                                 <FileText className="size-4 text-gray-700" />
                                             </div>
                                             <div>
-                                                <p className="font-mono text-sm font-medium text-gray-900">
-                                                    {job.id}
-                                                </p>
-                                                <p className="text-sm text-gray-600 truncate max-w-xs">
-                                                    {job.fileName}
-                                                </p>
+                                                <p className="font-mono text-sm font-medium text-gray-900">#{job.id}</p>
+                                                <p className="text-sm text-gray-600 truncate max-w-xs">{job.filename}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-sm text-gray-900">{job.studentName}</span>
+                                        <span className="text-sm text-gray-900">{job.display_name || 'Student'}</span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="text-sm text-gray-600">
-                                            <span>{job.pages} pages</span>
-                                            <span className="mx-2">•</span>
-                                            <span>{job.color === 'color' ? 'Color' : 'B&W'}</span>
-                                            <span className="mx-2">•</span>
-                                            <span>{job.copies}x</span>
+                                        <div className="text-sm text-gray-600 capitalize">
+                                            {job.print_options?.color || 'bw'} • {job.print_options?.copies || 1}x
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-sm text-gray-600">
-                                            {formatTime(job.completedDate)}
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <Clock className="size-3" />
+                                            {formatTime(job.created_at)}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                            job.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                            }`}>
+                                            {job.status === 'completed' && <CheckCircle2 className="size-3" />}
+                                            {job.status === 'rejected' && <XCircle className="size-3" />}
+                                            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {job.status === 'completed' ? (
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                <CheckCircle2 className="size-3" />
-                                                Completed
-                                            </span>
-                                        ) : (
-                                            <div className="space-y-1">
-                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                    <XCircle className="size-3" />
-                                                    Rejected
-                                                </span>
-                                                {job.rejectionReason && (
-                                                    <p className="text-xs text-gray-500 max-w-xs">
-                                                        {job.rejectionReason}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="font-semibold text-gray-900">
-                                            {job.amount > 0 ? `₹${job.amount}` : '-'}
-                                        </span>
+                                        <span className="font-semibold text-gray-900">₹{parseFloat(job.amount || 0).toFixed(2)}</span>
                                     </td>
                                 </tr>
                             ))}
@@ -292,7 +198,7 @@ export default function History() {
                 {filteredJobs.length === 0 && (
                     <div className="text-center py-12">
                         <FileText className="size-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No jobs found</p>
+                        <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">No historical data found</p>
                     </div>
                 )}
             </div>

@@ -60,8 +60,8 @@ function Header({ onProfileClick }) {
                                     editor: "Editor",
                                     compress: "Compress",
                                     shops: "Shops",
-                                    cart: "Cart",
-                                    orders: "Orders",
+                                    "print-setup": "Print Setup",
+                                    "print-history": "Print History",
                                     chat: "Chat",
                                     profile: "Profile",
                                     student: "Student Portal"

@@ -7,7 +7,7 @@ import {
     FileEdit,
     Zap,
     Store,
-    ShoppingCart,
+    Printer,
     History as HistoryIcon,
     MessageSquare,
     User,
@@ -30,20 +30,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// Actually, standard shadcn sidebar uses dropdown menu.
-// The user provided DropoutMenu code too.
 import { useAuth } from "@/shared/AuthContext";
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/images/logo_raw.png";
 
 const navItems = [
     { title: "Dashboard", url: "/student/dashboard", icon: LayoutDashboard },
-    { title: "Upload & Prepare", url: "/student/upload", icon: Upload },
     { title: "Editor", url: "/student/editor", icon: FileEdit },
     { title: "Compress", url: "/student/compress", icon: Zap },
     { title: "Shops", url: "/student/shops", icon: Store },
-    { title: "Cart", url: "/student/cart", icon: ShoppingCart },
-    { title: "Orders", url: "/student/orders", icon: HistoryIcon },
+    { title: "Print History", url: "/student/print-history", icon: HistoryIcon },
     { title: "Chat", url: "/student/chat", icon: MessageSquare },
 ];
 
