@@ -176,13 +176,17 @@ export function PrintHistory() {
                         </div>
 
                         <div className="flex items-center justify-end gap-3">
-                            <button
-                                onClick={() => job.final_pdf_url && window.open(job.final_pdf_url, '_blank')}
-                                className="px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 text-sm shadow-sm active:scale-95"
-                            >
-                                <Download className="w-4 h-4" />
-                                View Final PDF
-                            </button>
+                            {job.final_pdf_url && (
+                                <a
+                                    href={job.final_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center gap-2 text-sm shadow-sm active:scale-95 inline-flex"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    View Final PDF
+                                </a>
+                            )}
                         </div>
                     </div>
                 ))}

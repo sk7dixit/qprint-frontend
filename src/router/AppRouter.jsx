@@ -21,7 +21,7 @@ import Settings from '../seller/components/Settings';
 
 import StudentLayout from '../student/StudentLayout';
 import { Dashboard as StudentDashboard } from '../student/components/Dashboard';
-import { PDFEditor } from '../student/components/PDFEditor';
+import EditorPage from '../pages/EditorPage';
 import { Compression } from '../student/components/Compression';
 import { ShopsPricing } from '../student/components/ShopsPricing';
 import { PrintHistory } from '../student/components/PrintHistory';
@@ -133,8 +133,15 @@ const AuthGuard = ({ children, isPublicAuth = false, allowedRoles = null }) => {
 export function AppRouter() {
     return (
         <Routes>
-            {/* 1. ROOT ROUTE - Purely Public, No Redirects */}
-            <Route path="/" element={<Landing />} />
+            {/* 1. ROOT ROUTE - Redirect authenticated users directly to their dashboard */}
+            <Route
+                path="/"
+                element={
+                    <AuthGuard isPublicAuth>
+                        <Landing />
+                    </AuthGuard>
+                }
+            />
 
             {/* 2. AUTH ROUTES - Redirect if authenticated */}
             <Route
@@ -181,8 +188,8 @@ export function AppRouter() {
                     <Route path="dashboard" element={<StudentDashboard />} />
                     <Route path="upload" element={<Navigate to="/student/shops" replace />} />
                     <Route path="preview/:draftId" element={<Preview />} />
-                    <Route path="editor/:draftId" element={<PDFEditor />} />
-                    <Route path="editor" element={<PDFEditor />} />
+                    <Route path="editor/:draftId" element={<EditorPage />} />
+                    <Route path="editor" element={<EditorPage />} />
                     <Route path="checkout" element={<Navigate to="/student/print-setup" replace />} />
                     <Route path="print-setup" element={<PrintSetup />} />
                     <Route path="cart" element={<Navigate to="/student/print-setup" replace />} />
